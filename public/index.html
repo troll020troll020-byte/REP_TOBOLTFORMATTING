@@ -151,12 +151,13 @@
         <div class="info">
             <h3>What this tool does:</h3>
             <ul>
-                <li>✅ Converts your document to Times New Roman 12pt font</li>
-                <li>✅ Applies double spacing throughout</li>
-                <li>✅ Replaces URLs with simple citations (e.g., "example.com, 2024")</li>
-                <li>✅ Adds a formatted title based on your chosen style</li>
+                <li>✅ <strong>REBUILDS</strong> your document with Times New Roman 12pt font</li>
+                <li>✅ <strong>APPLIES</strong> double spacing throughout</li>
+                <li>✅ <strong>CONVERTS</strong> URLs to simple citations (e.g., "example.com, 2024")</li>
+                <li>✅ <strong>ADDS</strong> a formatted title based on your chosen style</li>
+                <li>✅ <strong>SETS</strong> proper 1-inch margins</li>
             </ul>
-            <p><strong>Note:</strong> This is a simplified version that focuses on core formatting. Upload a .docx file to test it!</p>
+            <p><strong>Note:</strong> This tool completely rebuilds your document with proper academic formatting. The output will be visually different from your input file. Upload a .docx file to test it!</p>
         </div>
     </div>
 
@@ -218,7 +219,7 @@
                 window.URL.revokeObjectURL(url);
                 
                 // Show success message
-                showStatus(`✅ Success! Your document has been formatted with ${style.toUpperCase()} style (Times New Roman 12pt, double spacing). The download should start automatically.`, 'success');
+                showStatus(`✅ Formatting complete! Your document has been rebuilt with Times New Roman 12pt font and double spacing. URLs have been converted to citations. The download should start automatically.`, 'success');
                 
             } catch (error) {
                 console.error('Error:', error);

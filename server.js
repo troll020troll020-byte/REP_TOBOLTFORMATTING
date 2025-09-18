@@ -97,7 +97,15 @@ app.post('/api/format', upload.single('file'), async (req, res) => {
 function processTextForCitations(text) {
   console.log('🔗 Starting URL processing...');
   
-  // Simple URL regex
+  // Step 1: Fix in-text citations - Add commas between author and year
+  console.log('📝 Fixing in-text citations...');
+  text = fixInTextCitations(text);
+  
+  // Step 2: Fix reference list formatting
+  console.log('📚 Fixing reference list...');
+  text = fixReferenceList(text);
+  
+  // Step 3: Replace URLs with citations
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   let citationCounter = 1;
   const urls = text.match(urlRegex) || [];
@@ -115,10 +123,144 @@ function processTextForCitations(text) {
     }
   });
   
-  console.log('🔗 URL processing complete');
+  console.log('🔗 All text processing complete');
   return processedText;
 }
 
+// Function to fix in-text citations: (Author Year) → (Author, Year)
+function fixInTextCitations(text) {
+  console.log('📝 Starting in-text citation fixes...');
+  
+  // Pattern to match citations like (Author Year) or (Author & Author Year)
+  // This matches: (word(s) optionally with &/and followed by year)
+  const citationPattern = /\(([^)]*?)(\s+)(\d{4}[a-z]?)\)/g;
+  
+  let fixCount = 0;
+  const fixedText = text.replace(citationPattern, (match, authors, space, year) => {
+    // Skip if there's already a comma before the year
+    if (authors.includes(',') && authors.trim().endsWith(',')) {
+      console.log(`📝 Citation already has comma: ${match}`);
+      return match;
+    }
+    
+    // Replace & with 'and' in author names
+    const cleanAuthors = authors.replace(/\s*&\s*/g, ' and ');
+    
+    // Add comma before year
+    const fixed = `(${cleanAuthors}, ${year})`;
+    console.log(`📝 Fixed citation: ${match} → ${fixed}`);
+    fixCount++;
+    
+    return fixed;
+  });
+  
+  console.log(`📝 Fixed ${fixCount} in-text citations`);
+  return fixedText;
+}
+
+// Function to fix reference list formatting
+function fixReferenceList(text) {
+  console.log('📚 Starting reference list fixes...');
+  
+  // Find the References section
+  const referencesMatch = text.match(/(References?|Bibliography)\s*\n([\s\S]*?)(?=\n\n[A-Z]|\n\n\d+\.|\n\nAppendix|$)/i);
+  
+  if (!referencesMatch) {
+    console.log('📚 No References section found');
+    return text;
+  }
+  
+  const referencesSection = referencesMatch[2];
+  console.log(`📚 Found References section with ${referencesSection.length} characters`);
+  
+  // Split into individual references (each reference typically starts on a new line)
+  const references = referencesSection.split('\n').filter(ref => ref.trim().length > 0);
+  console.log(`📚 Found ${references.length} reference entries`);
+  
+  const formattedReferences = references.map((ref, index) => {
+    console.log(`📚 Processing reference ${index + 1}: ${ref.substring(0, 50)}...`);
+    return formatSingleReference(ref.trim());
+  });
+  
+  // Replace the original references section with the formatted one
+  const formattedSection = referencesMatch[1] + '\n' + formattedReferences.join('\n');
+  const result = text.replace(referencesMatch[0], formattedSection);
+  
+  console.log('📚 Reference list formatting complete');
+  return result;
+}
+
+// Function to format a single reference according to Harvard rules
+function formatSingleReference(ref) {
+  console.log(`📚 Formatting reference: ${ref.substring(0, 100)}...`);
+  
+  // Journal Article Pattern
+  // Matches: Author(s). (Year). Title. Journal, Volume(Issue), Pages.
+  const journalPattern = /^([^.]+)\.\s*\((\d{4}[a-z]?)\)\.\s*([^.]+)\.\s*([^,]+),\s*(\d+)(?:\((\d+)\))?,\s*(\d+[-–]\d+)\.?$/;
+  
+  const journalMatch = ref.match(journalPattern);
+  if (journalMatch) {
+    const [, authors, year, title, journal, volume, issue, pages] = journalMatch;
+    
+    // Fix authors: replace & with 'and', ensure proper formatting
+    const fixedAuthors = authors.replace(/\s*&\s*/g, ' and ').trim();
+    
+    // Format according to Harvard rules
+    const formatted = `${fixedAuthors} (${year}) '${title.trim()}', *${journal.trim()}*, ${volume}${issue ? `(${issue})` : ''}, pp. ${pages}.`;
+    
+    console.log(`📚 Journal article formatted: ${formatted.substring(0, 100)}...`);
+    return formatted;
+  }
+  
+  // Conference Proceedings Pattern
+  // Matches: Author(s). (Year). Title. In Conference/Proceedings...
+  const conferencePattern = /^([^.]+)\.\s*\((\d{4}[a-z]?)\)\.\s*([^.]+)\.\s*(In\s+|Proceedings\s+of\s+|)([^,]+),?\s*([^.]*)\./;
+  
+  const conferenceMatch = ref.match(conferencePattern);
+  if (conferenceMatch) {
+    const [, authors, year, title, , conference, location] = conferenceMatch;
+    
+    // Fix authors
+    const fixedAuthors = authors.replace(/\s*&\s*/g, ' and ').trim();
+    
+    // Format for conference
+    const formatted = `${fixedAuthors} (${year}) '${title.trim()}', in *${conference.trim()}*${location ? `, ${location.trim()}` : ''}.`;
+    
+    console.log(`📚 Conference paper formatted: ${formatted.substring(0, 100)}...`);
+    return formatted;
+  }
+  
+  // Book Pattern
+  // Matches: Author(s). (Year). Title. Publisher.
+  const bookPattern = /^([^.]+)\.\s*\((\d{4}[a-z]?)\)\.\s*([^.]+)\.\s*([^.]+)\.?$/;
+  
+  const bookMatch = ref.match(bookPattern);
+  if (bookMatch) {
+    const [, authors, year, title, publisher] = bookMatch;
+    
+    // Fix authors
+    const fixedAuthors = authors.replace(/\s*&\s*/g, ' and ').trim();
+    
+    // Format for book
+    const formatted = `${fixedAuthors} (${year}) *${title.trim()}*. ${publisher.trim()}.`;
+    
+    console.log(`📚 Book formatted: ${formatted.substring(0, 100)}...`);
+    return formatted;
+  }
+  
+  // If no pattern matches, apply basic fixes
+  console.log(`📚 No specific pattern matched, applying basic fixes`);
+  
+  // Basic fixes: replace & with 'and', ensure proper punctuation
+  let basicFixed = ref.replace(/\s*&\s*/g, ' and ');
+  
+  // Try to fix obvious issues
+  basicFixed = basicFixed.replace(/\.\s*\.\s*/g, '. '); // Remove double periods
+  basicFixed = basicFixed.replace(/\s+/g, ' '); // Normalize spaces
+  
+  console.log(`📚 Basic fixes applied: ${basicFixed.substring(0, 100)}...`);
+  return basicFixed;
+}
 // Function to create a formatted document with proper styling
 function createFormattedDocument(text, style) {
   console.log(`📝 Creating document with ${style} style...`);

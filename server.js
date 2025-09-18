@@ -162,19 +162,19 @@ function fixInTextCitations(text) {
 function fixReferenceList(text) {
   console.log('📚 Starting reference list fixes...');
   
-  // Find the References section
-  const referencesMatch = text.match(/(References?|Bibliography)\s*\n([\s\S]*?)(?=\n\n[A-Z]|\n\n\d+\.|\n\nAppendix|$)/i);
+  // Find the Citations section and change it to References
+  const citationsMatch = text.match(/(Citations?)\s*\n([\s\S]*?)(?=\n\n[A-Z]|\n\n\d+\.|\n\nAppendix|$)/i);
   
-  if (!referencesMatch) {
-    console.log('📚 No References section found');
+  if (!citationsMatch) {
+    console.log('📚 No Citations section found');
     return text;
   }
   
-  const referencesSection = referencesMatch[2];
-  console.log(`📚 Found References section with ${referencesSection.length} characters`);
+  const citationsSection = citationsMatch[2];
+  console.log(`📚 Found Citations section with ${citationsSection.length} characters`);
   
   // Split into individual references (each reference typically starts on a new line)
-  const references = referencesSection.split('\n').filter(ref => ref.trim().length > 0);
+  const references = citationsSection.split('\n').filter(ref => ref.trim().length > 0);
   console.log(`📚 Found ${references.length} reference entries`);
   
   const formattedReferences = references.map((ref, index) => {
@@ -183,8 +183,8 @@ function fixReferenceList(text) {
   });
   
   // Replace the original references section with the formatted one
-  const formattedSection = referencesMatch[1] + '\n' + formattedReferences.join('\n');
-  const result = text.replace(referencesMatch[0], formattedSection);
+  const formattedSection = 'References\n' + formattedReferences.join('\n');
+  const result = text.replace(citationsMatch[0], formattedSection);
   
   console.log('📚 Reference list formatting complete');
   return result;

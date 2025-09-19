@@ -98,6 +98,203 @@ app.post('/api/format', upload.single('file'), async (req, res) => {
   }
 });
 
+// NEW: Standalone Reference Generator Endpoint
+app.post('/api/format-references', async (req, res) => {
+  console.log('📚 REFERENCE GENERATOR REQUEST RECEIVED');
+  
+  try {
+    const { references } = req.body;
+    
+    if (!references || references.trim().length === 0) {
+      console.log('❌ No references provided');
+      return res.status(400).json({ error: 'No references provided' });
+    }
+
+    console.log(`📝 References received: ${references.length} characters`);
+    console.log(`📄 First 200 characters: "${references.substring(0, 200)}..."`);
+
+    // Split references into individual lines
+    const referenceLines = references.split('\n').filter(line => line.trim().length > 0);
+    console.log(`📚 Found ${referenceLines.length} reference entries`);
+
+    // Format each reference according to Harvard rules
+    const formattedReferences = referenceLines.map((ref, index) => {
+      console.log(`📚 Processing reference ${index + 1}: ${ref.substring(0, 50)}...`);
+      return formatSingleReferenceHarvard(ref.trim());
+    });
+
+    console.log('📝 Creating Harvard reference document...');
+    
+    // Create document with only the References section
+    const doc = createReferencesDocument(formattedReferences);
+    console.log('✅ Document structure created');
+
+    // Generate the docx file
+    console.log('📦 Generating DOCX buffer...');
+    const buffer = await Packer.toBuffer(doc);
+    console.log(`📦 Generated buffer size: ${buffer.length} bytes`);
+
+    // Send the formatted document
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', 'attachment; filename=harvard-references.docx');
+    res.send(buffer);
+
+    console.log('🎉 Harvard reference list generated and sent successfully');
+
+  } catch (error) {
+    console.error('💥 ERROR generating references:', error);
+    console.error('💥 Stack trace:', error.stack);
+    res.status(500).json({ error: 'Failed to generate references: ' + error.message });
+  }
+});
+
+// Function to format a single reference with Harvard rules
+function formatSingleReferenceHarvard(ref) {
+  console.log(`📚 Formatting Harvard reference: ${ref.substring(0, 100)}...`);
+  
+  // Step 1: Replace & with 'and'
+  let formatted = ref.replace(/\s*&\s*/g, ' and ');
+  console.log(`📚 After & replacement: ${formatted.substring(0, 100)}...`);
+  
+  // Step 2: Try to identify and format different types of references
+  
+  // Journal Article Pattern: Author(s). (Year). Title. Journal, Volume(Issue), Pages.
+  const journalPattern = /^([^.]+)\.\s*\((\d{4}[a-z]?)\)\.\s*([^.]+)\.\s*([^,]+),?\s*(\d+)(?:\((\d+)\))?,?\s*(\d+[-–]\d+)\.?$/;
+  const journalMatch = formatted.match(journalPattern);
+  
+  if (journalMatch) {
+    const [, authors, year, title, journal, volume, issue, pages] = journalMatch;
+    const result = `${authors.trim()} (${year}) '${title.trim()}', *${journal.trim()}*, ${volume}${issue ? `(${issue})` : ''}, pp. ${pages}.`;
+    console.log(`📚 Journal article formatted: ${result.substring(0, 100)}...`);
+    return result;
+  }
+  
+  // Conference Paper Pattern: Author(s). (Year). Title. In Conference...
+  const conferencePattern = /^([^.]+)\.\s*\((\d{4}[a-z]?),?\s*[^)]*\)\.\s*([^.]+)\.\s*In\s+([^(]+)(?:\(([^)]+)\))?\.?$/;
+  const conferenceMatch = formatted.match(conferencePattern);
+  
+  if (conferenceMatch) {
+    const [, authors, year, title, conference, pages] = conferenceMatch;
+    const result = `${authors.trim()} (${year}) '${title.trim()}', in *${conference.trim()}*${pages ? `, ${pages}` : ''}.`;
+    console.log(`📚 Conference paper formatted: ${result.substring(0, 100)}...`);
+    return result;
+  }
+  
+  // Generic Pattern: Try to extract basic components
+  // Look for: Authors. (Year). Title. Rest...
+  const genericPattern = /^([^.]+)\.\s*\((\d{4}[a-z]?)\)\.\s*([^.]+)\.\s*(.+)$/;
+  const genericMatch = formatted.match(genericPattern);
+  
+  if (genericMatch) {
+    const [, authors, year, title, rest] = genericMatch;
+    
+    // Try to identify if it's a journal (has volume/pages) or conference
+    if (rest.match(/\d+[-–]\d+/)) {
+      // Has page numbers, likely a journal
+      const result = `${authors.trim()} (${year}) '${title.trim()}', *${rest.trim()}*`;
+      console.log(`📚 Generic journal formatted: ${result.substring(0, 100)}...`);
+      return result;
+    } else {
+      // No clear page numbers, treat as book/conference
+      const result = `${authors.trim()} (${year}) '${title.trim()}', *${rest.trim()}*`;
+      console.log(`📚 Generic reference formatted: ${result.substring(0, 100)}...`);
+      return result;
+    }
+  }
+  
+  // If no pattern matches, apply basic fixes
+  console.log(`📚 No pattern matched, applying basic Harvard fixes`);
+  
+  // Basic Harvard formatting
+  let basicFormatted = formatted;
+  
+  // Ensure proper punctuation
+  basicFormatted = basicFormatted.replace(/\.\s*\.\s*/g, '. ');
+  basicFormatted = basicFormatted.replace(/\s+/g, ' ');
+  
+  console.log(`📚 Basic Harvard formatting applied: ${basicFormatted.substring(0, 100)}...`);
+  return basicFormatted;
+}
+
+// Function to create a document with only References
+function createReferencesDocument(formattedReferences) {
+  console.log(`📝 Creating References document with ${formattedReferences.length} entries...`);
+  
+  // Create the References heading
+  const titleParagraph = new Paragraph({
+    children: [
+      new TextRun({
+        text: "References",
+        font: "Times New Roman",
+        size: 24, // 12pt
+        bold: true,
+      }),
+    ],
+    spacing: {
+      line: 480, // Double spacing
+      after: 240, // Space after heading
+    },
+    alignment: AlignmentType.LEFT,
+  });
+
+  // Create paragraphs for each reference
+  const referenceParagraphs = formattedReferences.map((ref, index) => {
+    console.log(`📝 Creating paragraph ${index + 1}: "${ref.substring(0, 50)}..."`);
+    
+    return new Paragraph({
+      children: [
+        new TextRun({
+          text: ref,
+          font: "Times New Roman",
+          size: 24, // 12pt
+        }),
+      ],
+      spacing: {
+        line: 480, // Double spacing
+        after: 240, // Space after paragraph
+      },
+      alignment: AlignmentType.LEFT,
+    });
+  });
+
+  // Create the document
+  const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: {
+            font: "Times New Roman",
+            size: 24,
+          },
+          paragraph: {
+            spacing: {
+              line: 480, // Double spacing
+            },
+          },
+        },
+      },
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: 1440,    // 1 inch = 1440 twips
+              right: 1440,
+              bottom: 1440,
+              left: 1440,
+            },
+          },
+        },
+        children: [titleParagraph, ...referenceParagraphs],
+      },
+    ],
+  });
+
+  console.log('📝 References document creation complete');
+  return doc;
+}
+
 // Function to process text and replace URLs with citations
 function processTextForCitations(text) {
   console.log('🔗 Starting URL processing...');

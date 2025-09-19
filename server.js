@@ -59,9 +59,14 @@ app.post('/api/format', upload.single('file'), async (req, res) => {
     const processedText = processTextForCitations(originalText);
     console.log(`🔗 Text after URL processing: ${processedText.length} characters`);
 
+    // FINAL STEP: Fix the references section
+    console.log('📚 Applying final references formatting...');
+    const finalText = formatReferencesSection(processedText);
+    console.log('📚 References formatting complete');
+
     // Create a new document with proper formatting
     console.log('📝 Creating formatted document...');
-    const formattedDoc = createFormattedDocument(processedText, style);
+    const formattedDoc = createFormattedDocument(finalText, style);
     console.log('✅ Document structure created');
 
     // Generate the new docx file
@@ -262,6 +267,43 @@ function formatSingleReference(ref) {
   return basicFixed;
 }
 // Function to create a formatted document with proper styling
+// NEW FUNCTION: Format References Section
+function formatReferencesSection(text) {
+  console.log('📚 Starting formatReferencesSection...');
+  
+  // 1. Replace the Citations heading
+  let newText = text.replace(/\nCitations\n/g, '\nReferences\n');
+  console.log('📚 Replaced Citations heading with References');
+
+  // 2. Split the text into lines
+  let lines = newText.split('\n');
+  let foundReferences = false;
+  let newLines = [];
+  let changesCount = 0;
+
+  for (let line of lines) {
+    if (line.includes("References")) {
+      foundReferences = true;
+      console.log('📚 Found References section');
+    }
+    if (foundReferences) {
+      // 3. Apply the one simple rule: change & to and
+      const originalLine = line;
+      line = line.replace(/ & /g, ' and ');
+      if (originalLine !== line) {
+        changesCount++;
+        console.log(`📚 Changed: "${originalLine}" -> "${line}"`);
+      }
+    }
+    newLines.push(line);
+  }
+
+  console.log(`📚 Made ${changesCount} ampersand replacements in References section`);
+  
+  // 4. Join the lines back together
+  return newLines.join('\n');
+}
+
 function createFormattedDocument(text, style) {
   console.log(`📝 Creating document with ${style} style...`);
   

@@ -267,41 +267,34 @@ function formatSingleReference(ref) {
   return basicFixed;
 }
 // Function to create a formatted document with proper styling
-// NEW FUNCTION: Format References Section
 function formatReferencesSection(text) {
-  console.log('📚 Starting formatReferencesSection...');
-  
-  // 1. Replace the Citations heading
-  let newText = text.replace(/\nCitations\n/g, '\nReferences\n');
-  console.log('📚 Replaced Citations heading with References');
+  let lines = text.split('\n');
+  let startIndex = -1;
 
-  // 2. Split the text into lines
-  let lines = newText.split('\n');
-  let foundReferences = false;
-  let newLines = [];
-  let changesCount = 0;
-
-  for (let line of lines) {
-    if (line.includes("References")) {
-      foundReferences = true;
-      console.log('📚 Found References section');
+  // 1. FIND the line number of the "Citations" heading
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('Citations')) {
+      startIndex = i;
+      break; // Stop once we find it
     }
-    if (foundReferences) {
-      // 3. Apply the one simple rule: change & to and
-      const originalLine = line;
-      line = line.replace(/ & /g, ' and ');
-      if (originalLine !== line) {
-        changesCount++;
-        console.log(`📚 Changed: "${originalLine}" -> "${line}"`);
-      }
-    }
-    newLines.push(line);
   }
 
-  console.log(`📚 Made ${changesCount} ampersand replacements in References section`);
-  
+  // If we found the Citations section...
+  if (startIndex !== -1) {
+    // 2. CHANGE the heading on that exact line
+    lines[startIndex] = 'References';
+
+    // 3. Now, only for lines AFTER the heading, apply rules
+    for (let j = startIndex + 1; j < lines.length; j++) {
+      // ONLY change lines that look like references (have a year in parentheses)
+      if (lines[j].includes('(20')) {
+        lines[j] = lines[j].replace(/ & /g, ' and ');
+      }
+    }
+  }
+
   // 4. Join the lines back together
-  return newLines.join('\n');
+  return lines.join('\n');
 }
 
 function createFormattedDocument(text, style) {
